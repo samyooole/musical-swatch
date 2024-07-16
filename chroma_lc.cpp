@@ -1,5 +1,8 @@
  
-//chroma.cpp
+//chroma_lc.cpp
+
+
+// has ~attempted~ lead line cancellation
 
 
 #include <emscripten.h>
@@ -139,25 +142,87 @@ extern "C" {
   }
 
   float energy(int n, float* K_array, int length, float sampleRate) {
-    const int r = 2;
+    const int r = 3;
     float Energy = fft_windowmaxxer(n, 1, r, K_array, length, sampleRate) + 
                    fft_windowmaxxer(n, 2, r, K_array, length, sampleRate) / 2.0f+
                    fft_windowmaxxer(n, 3, r, K_array, length, sampleRate) / 3.0f+
-                   fft_windowmaxxer(n, 4, r, K_array, length, sampleRate) / 4.0f;
+                   fft_windowmaxxer(n, 4, r, K_array, length, sampleRate) / 4.0f+
+                   fft_windowmaxxer(n, 5, r, K_array, length, sampleRate) / 5.0f+
+                   fft_windowmaxxer(n, 6, r, K_array, length, sampleRate) / 6.0f+
+                   fft_windowmaxxer(n, 7, r, K_array, length, sampleRate) / 7.0f+
+                   fft_windowmaxxer(n, 8, r, K_array, length, sampleRate) / 8.0f+
+                   fft_windowmaxxer(n, 9, r, K_array, length, sampleRate) / 9.0f+
+                   fft_windowmaxxer(n, 10, r, K_array, length, sampleRate) / 10.0f;
 
     return Energy;
   }
 
-  float* chroma_vector(int octaves, float* K_array, int length, float sampleRate) {
-      float* Chroma_vector = new float[12]();
 
-      for (int n = 0; n < 12; n++) {
-          for (int d = 0; d < octaves; d++) {
-              
-              Chroma_vector[n] += energy(n + 12 * d, K_array, length, sampleRate);
-          }
-      }
-      return Chroma_vector;
+float* chroma_vector(int octaves, float* K_array, int length, float sampleRate) {
+    float* Chroma_vector = new float[12]();
+    float* Notes_vector = new float[12*octaves]();
+
+    // First get a notes vector (chroma but across all octaves)
+    for (int n = 0; n < 12; n++) {
+        for (int d = 0; d < octaves; d++) {
+            Notes_vector[n + 12 * d] += energy(n + 12 * d, K_array, length, sampleRate);
+        }
+    }
+
+    // Check if there is a single note which is a statistically significant outlier
+    float sum = 0, sum_sq = 0;
+    int total_notes = 12 * octaves;
+
+    for (int i = 0; i < total_notes; i++) {
+        sum += Notes_vector[i];
+        sum_sq += Notes_vector[i] * Notes_vector[i];
+    }
+
+    float mean = sum / total_notes;
+    float variance = (sum_sq / total_notes) - (mean * mean);
+    float std_dev = std::sqrt(variance);
+
+    float threshold = mean + 2 * std_dev; // 3 sigma rule
+
+    int outlier_index = -1;
+    int lowest_note_index = -1;
+
+    // Find the lowest note (first peak in the note energy spectrum)
+    for (int i = 0; i < total_notes; i++) {
+        if (Notes_vector[i] > 0) {
+            lowest_note_index = i;
+            break;
+        }
+    }
+
+    // Find the outlier, if any
+    for (int i = 0; i < total_notes; i++) {
+        if (Notes_vector[i] > threshold) {
+            if (outlier_index == -1) {
+                outlier_index = i;
+            } else {
+                // More than one outlier, so we don't consider any as significant
+                outlier_index = -1;
+                break;
+            }
+        }
+    }
+
+    // If a single significant outlier is found and it's not the lowest note, set its energy to zero
+    if (outlier_index != -1 && outlier_index != lowest_note_index) {
+        Notes_vector[outlier_index] = 0;
+    }
+
+    // Collapse Notes_vector into Chroma_vector
+    for (int n = 0; n < 12; n++) {
+        for (int d = 0; d < octaves; d++) {
+            Chroma_vector[n] += Notes_vector[n + 12 * d];
+        }
+    }
+
+    delete[] Notes_vector; // Free the memory allocated for Notes_vector
+
+    return Chroma_vector;
   }
 
   void rotateRight(float* array, int length, int positions) {

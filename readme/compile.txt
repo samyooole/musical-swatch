@@ -1,0 +1,18 @@
+
+
+
+emcc chroma.cpp kissfft/kiss_fft.c kissfft/kiss_fftr.c chordProfiles.cpp -o chroma.js -s EXPORTED_FUNCTIONS=_chroma,_malloc,_free,_classifyChord  -s EXPORTED_RUNTIME_METHODS=ccall,cwrap -s ALLOW_MEMORY_GROWTH=1 -O3 -I kissfft -s MODULARIZE=1 -s EXPORT_NAME=Module -s TOTAL_STACK=2MB --> works well, currently being used
+
+
+emcc chroma_lc.cpp kissfft/kiss_fft.c kissfft/kiss_fftr.c chordProfiles.cpp -o chroma.js -s EXPORTED_FUNCTIONS=_chroma,_malloc,_free,_classifyChord  -s EXPORTED_RUNTIME_METHODS=ccall,cwrap -s ALLOW_MEMORY_GROWTH=1 -O3 -I kissfft -s MODULARIZE=1 -s EXPORT_NAME=Module -s TOTAL_STACK=2MB
+
+# explanation:
+- emcc: the executable that does the compilation
+- chroma.cpp: the input cpp file
+- -o optimization flag? can change later to O3 for better optimization
+- chroma.js: the output js file
+- EXPORTED FUNCTIONS: pick the specific functions to be exported, prefaced by _
+- ccall, cwrap: methods describing how you can use the cpp functions in js
+- -I: pointer for where fftw (and other external libraries, if you end up using them) is installed on the current device
+
+
