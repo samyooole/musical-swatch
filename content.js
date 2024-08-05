@@ -1,4 +1,4 @@
-//content.js
+// content.js
 
 'use strict';
 
@@ -16,7 +16,7 @@ script.onload = () => {
 document.body.appendChild(script);
 
 let lastChroma = new Float32Array(12).fill(-1);
-const cosineThreshold = 0.95
+const cosineThreshold = 0.97;
 
 function cosineSimilarity(vecA, vecB) {
     if (vecA.length !== vecB.length) {
@@ -43,18 +43,13 @@ function cosineSimilarity(vecA, vecB) {
     return dotProduct / (magnitudeA * magnitudeB);
 }
 
-
 function normalizeChroma(chromaVector) {
-    // Find the maximum value in the chroma vector
     const maxValue = Math.max(...chromaVector);
 
-    // Avoid division by zero
     if (maxValue > 0) {
-        // Normalize each value by dividing it by the maximum value
         return chromaVector.map(value => value / maxValue);
     }
 
-    // If maxValue is 0, return the original vector
     return chromaVector;
 }
 
@@ -68,7 +63,7 @@ function captureTabAudio() {
                 return;
             }
 
-            audioContext.createMediaStreamSource(tabStream).connect(audioContext.destination); // secondary stream for audio to pass through?
+            audioContext.createMediaStreamSource(tabStream).connect(audioContext.destination);
 
             const sourceNode = audioContext.createMediaStreamSource(tabStream);
             const scriptNode = audioContext.createScriptProcessor(4096, 1, 1);
@@ -76,82 +71,72 @@ function captureTabAudio() {
             sourceNode.connect(scriptNode);
             scriptNode.connect(audioContext.destination);
 
-            // Define a buffer to store recent chroma vectors
             const chromaBuffer = [];
-            const bufferSize = 4; // Number of frames to average over
+            const bufferSize = 5;
 
-            // Handle audio processing
+            let lastChromaString = "❓No music detected";
+            let chordString = "";
+
             scriptNode.onaudioprocess = event => {
                 const inputBuffer = event.inputBuffer;
                 const inputData = inputBuffer.getChannelData(0);
-            
+
                 if (!inputData) {
                     console.error('No input data received.');
                     return;
                 }
-            
-                // Allocate memory for input data in the WebAssembly module
-                const inputArrayPtr = wasmModule._malloc(inputData.length * Float32Array.BYTES_PER_ELEMENT);
-                wasmModule.HEAPF32.set(inputData, inputArrayPtr / Float32Array.BYTES_PER_ELEMENT);
-            
-                // Call the C function to compute chroma
-                const thischromaPtr = wasmModule._chroma(inputArrayPtr, inputData.length, audioContext.sampleRate);
-            
-                // Create a JavaScript Float32Array view of the returned thischroma data (assuming it's a Float32Array)
-                const thischroma = new Float32Array(wasmModule.HEAPF32.buffer, thischromaPtr, 12);
 
-                //const normalizedChroma = normalizeChroma(thischroma);
-                
-                const normalizedChroma = thischroma;
-                
-                // Free allocated memory for input data
-                wasmModule._free(inputArrayPtr);
-            
-                // Push thischroma into chromaBuffer
-                //chromaBuffer.push(thischroma);
-                chromaBuffer.push(normalizedChroma);
-            
-                // Ensure buffer size doesn't exceed maximum
-                if (chromaBuffer.length > bufferSize) {
-                    chromaBuffer.shift(); // Remove oldest frame
-                }
+                const isEmptyArray = inputData.every(sample => sample === 0);
 
+                if (isEmptyArray) {
+                    chordString = lastChromaString;
+                    console.log('isempty');
+                } else {
+                    const inputArrayPtr = wasmModule._malloc(inputData.length * Float32Array.BYTES_PER_ELEMENT);
+                    wasmModule.HEAPF32.set(inputData, inputArrayPtr / Float32Array.BYTES_PER_ELEMENT);
 
-                //  average chroma vector across the buffer
-                if (chromaBuffer.length > 0) {
-                    const averagedChroma = new Float32Array(12).fill(0);
-                    chromaBuffer.forEach(frame => {
+                    const thischromaPtr = wasmModule._chroma(inputArrayPtr, inputData.length, audioContext.sampleRate);
+                    const thischroma = new Float32Array(wasmModule.HEAPF32.buffer, thischromaPtr, 12);
+
+                    const normalizedChroma = thischroma;
+                    chromaBuffer.push(normalizedChroma);
+
+                    if (chromaBuffer.length > bufferSize) {
+                        chromaBuffer.shift();
+                    }
+
+                    if (chromaBuffer.length > 0) {
+                        const averagedChroma = new Float32Array(12).fill(0);
+                        chromaBuffer.forEach(frame => {
+                            for (let i = 0; i < 12; i++) {
+                                averagedChroma[i] += frame[i];
+                            }
+                        });
                         for (let i = 0; i < 12; i++) {
-                            averagedChroma[i] += frame[i];
+                            averagedChroma[i] /= chromaBuffer.length;
                         }
-                    });
-                    for (let i = 0; i < 12; i++) {
-                        averagedChroma[i] /= chromaBuffer.length;
+
+                        if (cosineSimilarity(lastChroma, averagedChroma) < cosineThreshold) {
+                            const averagedChromaPtr = wasmModule._malloc(averagedChroma.length * Float32Array.BYTES_PER_ELEMENT);
+                            wasmModule.HEAPF32.set(averagedChroma, averagedChromaPtr / Float32Array.BYTES_PER_ELEMENT);
+
+                            const chordResult = wasmModule._classifyChord(averagedChromaPtr);
+
+                            chordString = classifyChord(chordResult);
+
+                            wasmModule._free(averagedChromaPtr);
+                            lastChroma = new Float32Array(averagedChroma);
+                            lastChromaString = chordString;
+
+                            let notes_tobeHighlighted = determineNotesfromChordInteger(chordResult);
+                            highlightChord(notes_tobeHighlighted);
+                        }
                     }
 
-
-                    //if the averaged chroma is significantly different than before
-                    if (cosineSimilarity(lastChroma, averagedChroma) < cosineThreshold){
-                        // Perform chord classification on averagedChroma instead of raw chroma
-                        const averagedChromaPtr = wasmModule._malloc(averagedChroma.length * Float32Array.BYTES_PER_ELEMENT);
-                        wasmModule.HEAPF32.set(averagedChroma, averagedChromaPtr / Float32Array.BYTES_PER_ELEMENT);
-
-                        const chordResult = wasmModule._classifyChord(averagedChromaPtr);
-
-                        const chordString = classifyChord(chordResult);
-                        console.log(`Chord: ${chordString}`);
-
-                        updateChord(chordString);
-
-                        // Free allocated memory for averagedChroma
-                        wasmModule._free(averagedChromaPtr);
-                        // Update lastChroma
-                        lastChroma = new Float32Array(averagedChroma);
-                    }
-            
-                    
+                    wasmModule._free(inputArrayPtr);
                 }
-                
+
+                updateChord(chordString);
             };
         });
     } catch (error) {
@@ -163,7 +148,6 @@ function classifyChord(chordIndex) {
     const chordTypeIndex = Math.floor(chordIndex / 12);
     const chordKeyIndex = chordIndex % 12;
 
-    // Define arrays to hold the chord type and chord key strings
     const chordTypes = [
         "Major", "Minor", "Diminished 5th", "Augmented 5th",
         "Sus2", "Sus4", "Major 7th", "Minor 7th", "Dominant 7th", "Unknown"
@@ -183,6 +167,74 @@ function updateChord(chordString) {
     const chordDiv = document.getElementById('chord-text');
     chordDiv.textContent = `${chordString}`;
 }
+
+function highlightChord(chordNotes) {
+    document.querySelectorAll('.key').forEach(key => {
+        key.classList.remove('highlighted');
+    });
+
+    chordNotes.forEach(note => {
+        const key = document.querySelector(`.key[data-note="${note}"]`);
+        if (key) {
+            key.classList.add('highlighted');
+        }
+    });
+}
+
+function determineNotesfromChordInteger(chordInteger) {
+    const key = chordInteger % 12;
+    const phase = Math.floor(chordInteger / 12);
+
+    let constituent_notes = [];
+
+    switch (phase) {
+        case 0: constituent_notes = [0, 4, 7]; break;
+        case 1: constituent_notes = [0, 3, 7]; break;
+        case 2: constituent_notes = [0, 3, 6]; break;
+        case 3: constituent_notes = [0, 4, 8]; break;
+        case 4: constituent_notes = [0, 2, 7]; break;
+        case 5: constituent_notes = [0, 5, 7]; break;
+        case 6: constituent_notes = [0, 4, 7, 11]; break;
+        case 7: constituent_notes = [0, 3, 7, 10]; break;
+        case 8: constituent_notes = [0, 4, 7, 10]; break;
+        default: console.log("Chord phase not recognized"); break;
+    }
+
+    let notes = [];
+    for (let note_pos of constituent_notes) {
+        notes.push(getNotefromRoot(key, note_pos));
+    }
+
+    return notes;
+}
+
+function getNotefromRoot(root, note_position) {
+    const twelvekeys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const rotatedKeys = twelvekeys.slice(root).concat(twelvekeys.slice(0, root));
+    return rotatedKeys[note_position];
+}
+
+// Play/pause control
+
+function controlPageMedia() {
+    const media = document.querySelector('video, audio');
+    if (media) {
+        if (media.paused) {
+            media.play();
+        } else {
+            media.pause();
+        }
+        return media.paused ? 'paused' : 'playing';
+    }
+    return 'no media found';
+}
+
+
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (request.action === "togglePlayPause") {
+        sendResponse(controlPageMedia());
+    }
+});
 
 
 

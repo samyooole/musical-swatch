@@ -1,6 +1,7 @@
  
 //chroma.cpp
 
+// base -without lead cancellation
 
 #include <emscripten.h>
 #include <cmath>
@@ -139,11 +140,18 @@ extern "C" {
   }
 
   float energy(int n, float* K_array, int length, float sampleRate) {
-    const int r = 2;
+    const int r = 3;
     float Energy = fft_windowmaxxer(n, 1, r, K_array, length, sampleRate) + 
                    fft_windowmaxxer(n, 2, r, K_array, length, sampleRate) / 2.0f+
                    fft_windowmaxxer(n, 3, r, K_array, length, sampleRate) / 3.0f+
-                   fft_windowmaxxer(n, 4, r, K_array, length, sampleRate) / 4.0f;
+                   fft_windowmaxxer(n, 4, r, K_array, length, sampleRate) / 4.0f+
+                   fft_windowmaxxer(n, 5, r, K_array, length, sampleRate) / 5.0f+
+                   fft_windowmaxxer(n, 6, r, K_array, length, sampleRate) / 6.0f+
+                   fft_windowmaxxer(n, 7, r, K_array, length, sampleRate) / 7.0f+
+                   fft_windowmaxxer(n, 8, r, K_array, length, sampleRate) / 8.0f+
+                   fft_windowmaxxer(n, 9, r, K_array, length, sampleRate) / 9.0f+
+                   fft_windowmaxxer(n, 10, r, K_array, length, sampleRate) / 10.0f+
+                   fft_windowmaxxer(n, 11, r, K_array, length, sampleRate) / 11.0f;
 
     return Energy;
   }
@@ -196,9 +204,10 @@ extern "C" {
     float* downsampled = (float*)malloc(sizeof(float) * newLength);
     float* padded = (float*)malloc(sizeof(float) * paddedLength);
 
-    bandPassFilter(inputArray, filtered, length, lowCutoff, highCutoff, sampleRate);
-    downsample(filtered, downsampled, length, downsampleFactor);
-    zeroPad(downsampled, padded, newLength, paddedLength);
+    //bandPassFilter(inputArray, filtered, length, lowCutoff, highCutoff, sampleRate);
+    //downsample(filtered, downsampled, length, downsampleFactor);
+    //zeroPad(downsampled, padded, newLength, paddedLength);
+    zeroPad(inputArray, padded, newLength, paddedLength);
 
     float* windowed = (float*)malloc(sizeof(float) * paddedLength);
     Hamming(padded, windowed, paddedLength);

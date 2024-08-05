@@ -2,7 +2,9 @@
 //chroma_lc.cpp
 
 
-// has ~attempted~ lead line cancellation
+
+// has ~attempted~ lead line cancellation - currently being used
+
 
 
 #include <emscripten.h>
@@ -152,13 +154,13 @@ extern "C" {
                    fft_windowmaxxer(n, 7, r, K_array, length, sampleRate) / 7.0f+
                    fft_windowmaxxer(n, 8, r, K_array, length, sampleRate) / 8.0f+
                    fft_windowmaxxer(n, 9, r, K_array, length, sampleRate) / 9.0f+
-                   fft_windowmaxxer(n, 10, r, K_array, length, sampleRate) / 10.0f;
+                   fft_windowmaxxer(n, 10, r, K_array, length, sampleRate) / 10.0f+
+                   fft_windowmaxxer(n, 11, r, K_array, length, sampleRate) / 11.0f;
 
     return Energy;
   }
 
-
-float* chroma_vector(int octaves, float* K_array, int length, float sampleRate) {
+  float* chroma_vector(int octaves, float* K_array, int length, float sampleRate) {
     float* Chroma_vector = new float[12]();
     float* Notes_vector = new float[12*octaves]();
 
@@ -170,6 +172,7 @@ float* chroma_vector(int octaves, float* K_array, int length, float sampleRate) 
     }
 
     // Check if there is a single note which is a statistically significant outlier
+    // ok i think this general approach is just not working - it's taking out root notes before it's taking out lead lines
     float sum = 0, sum_sq = 0;
     int total_notes = 12 * octaves;
 
@@ -182,7 +185,7 @@ float* chroma_vector(int octaves, float* K_array, int length, float sampleRate) 
     float variance = (sum_sq / total_notes) - (mean * mean);
     float std_dev = std::sqrt(variance);
 
-    float threshold = mean + 2 * std_dev; // 3 sigma rule
+    float threshold = mean + 3 * std_dev; // 3 sigma rule
 
     int outlier_index = -1;
     int lowest_note_index = -1;
@@ -261,9 +264,10 @@ float* chroma_vector(int octaves, float* K_array, int length, float sampleRate) 
     float* downsampled = (float*)malloc(sizeof(float) * newLength);
     float* padded = (float*)malloc(sizeof(float) * paddedLength);
 
-    bandPassFilter(inputArray, filtered, length, lowCutoff, highCutoff, sampleRate);
-    downsample(filtered, downsampled, length, downsampleFactor);
-    zeroPad(downsampled, padded, newLength, paddedLength);
+    //bandPassFilter(inputArray, filtered, length, lowCutoff, highCutoff, sampleRate);
+    //downsample(filtered, downsampled, length, downsampleFactor);
+    //zeroPad(downsampled, padded, newLength, paddedLength);
+    zeroPad(inputArray, padded, newLength, paddedLength);
 
     float* windowed = (float*)malloc(sizeof(float) * paddedLength);
     Hamming(padded, windowed, paddedLength);
@@ -313,13 +317,6 @@ float* chroma_vector(int octaves, float* K_array, int length, float sampleRate) 
 
     
 }
-
-
-
-
-
-
-
 
 
 

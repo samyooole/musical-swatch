@@ -4,32 +4,20 @@
     "description": "Detect musical chords in real time",
     "version": "0.1",
     "permissions": [
-        "tabs",
-        "activeTab",
         "tabCapture"
-    ],
-    "host_permissions": [
-        "https://*/"
     ],
     "action": {
         "default_popup": "swatch.html",
         "default_icon": "swatch_icon.png"
     },
-    "content_scripts": [
-        {
-            "matches": ["<all_urls>"],
-            "js": ["content.js"]
-        }
-    ],
     "web_accessible_resources": [
         {
-            "resources": ["chroma.js", "chroma.wasm"],
+            "resources": ["chroma.js", "chroma.wasm", "piano.js"],
             "matches": ["<all_urls>"]
         }
     ],
-    
     "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
-  }
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    }
 }
 

@@ -1,0 +1,96 @@
+
+
+
+body {
+    width: 300px;
+    font-family: 'Roboto', sans-serif;
+    background-color: #3a3a3a;
+    margin: 0;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+}
+  
+* {
+    font-family: 'Roboto', sans-serif;
+}
+
+
+.chord-text-container {
+    background-color: #3a3a3a;
+    padding: 1px;
+    margin-top: 10px;
+    margin-bottom: 0px;
+    /*box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.363);*/
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 37px;
+    border-radius: 1px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+#chord-text {
+    font-size: clamp(16px, 8vw, 32px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    padding: 0 5px;
+}
+
+
+.header-container {
+    background-color: #3a3a3a;
+    padding: 1px;
+    margin-bottom: 10px;
+    box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.363);
+    color: whitesmoke;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 37px;
+    border-radius: 1px;
+}
+
+.header-container h2 {
+    font-weight: normal;
+  }
+
+
+
+
+/* piano keys */
+
+
+.piano-keys {
+    display: flex;
+    width: 100%;
+    max-width: 500px;
+    margin-top: 10px;
+}
+.key {
+    flex: 1;
+    height: 120px;
+    border: 1px solid #000;
+    box-sizing: border-box;
+}
+.white-key {
+    background-color: white;
+}
+.black-key {
+    background-color: black;
+    margin-left: -15px;
+    margin-right: -15px;
+    z-index: 1;
+    height: 80px;
+    width: 30px;
+    flex: none;
+}
+.highlighted {
+    background-color: rgb(176, 59, 211);
+}
